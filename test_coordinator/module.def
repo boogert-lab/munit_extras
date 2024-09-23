@@ -1,0 +1,7 @@
+test_coordinator 4
+description
+	Object for starting and reporting MUNIT tests
+end
+requires
+	munit_xml 4
+end

@@ -1,0 +1,62 @@
+#% text_encoding = iso8859_1
+# ************************************************************
+#
+# (c) 2021 BOOGERT-LAB.NL
+#
+# ************************************************************
+
+_package sw
+
+_pragma(classify_level=basic, topic={dmdw,test})
+_method mtest_result.print_on( a_stream )
+	## 
+	##
+	
+	_local l_ac, l_ec, l_fc, l_rc
+	l_ac << _self.assert_count()
+	l_ec << _self.error_count()
+	l_fc << _self.failure_count()
+	l_rc << _self.run_count()
+
+	write( l_rc, " tests have been run (", l_ac, " assertions). ", l_fc, " failures and ", l_ec, " errors were encountered." )
+
+	_if _self.was_successful?()
+	_then
+		write( "SUCCESSFUL" )
+	_else
+		write( "MELTDOWN" )
+		
+		_if l_ec > 0
+		_then write( "Errors : " )
+		      _for i _over _self.errors()
+		      _loop write(i)
+		      _endloop
+		_endif
+		
+		_if l_fc > 0
+		_then write( "Failures : " )
+		      _for i _over _self.failures()
+		      _loop write(i)
+		      _endloop
+		_endif
+	_endif
+	
+
+_endmethod
+$
+
+_pragma(classify_level=basic, topic={dmdw,test})
+_method mtest_result.assert_reporter
+	## 
+	## Loop over the listeners and return the first match on class
+	## munit_assert_reporter
+	##
+	
+	_for i _over .listeners.fast_elements()
+	_loop _if i.is_kind_of?(munit_assert_reporter)
+	      _then _return i
+	      _endif
+	_endloop
+	
+_endmethod
+$

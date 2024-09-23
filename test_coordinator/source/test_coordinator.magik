@@ -1,0 +1,144 @@
+#% text_encoding = iso8859_1
+# ************************************************************
+# https://github.com/boogert-lab/MapMarkers
+# Courtesy of Realworld Software Products 2020
+# Original author andre.van.den.boogert@realworld-systems.com
+# ************************************************************
+
+_package sw
+
+remex(:test_coordinator)
+$
+
+_pragma(classify_level=advanced, topic={munit,munit_extras})
+##
+## A thing that knows about modules and can set an appropriate
+## out dir and have run()
+##
+def_slotted_exemplar(:test_coordinator,
+	{{:product,_unset}}
+)
+$
+
+_pragma(classify_level=advanced, topic={munit,munit_extras})
+_method test_coordinator.my_product
+	## 
+	##
+	>> sw_module_manager.module(_self.module_name).product
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,munit_extras})
+_method test_coordinator.my_application
+	## 
+	## 
+	>> smallworld_product.applications.an_element()
+_endmethod
+$
+
+
+_pragma(classify_level=advanced, topic={munit,munit_extras})
+_method test_coordinator.run( p_product_name, _optional p_outdir )
+	##
+	## Set output dir and run test_suite from for product with name
+	## P_PRODUCT_NAME and print the results.
+	##
+	## Uses environment variable MUNIT_OUTPUT_DIR.
+	## Make it "" to get results in this test module results dir
+	## See set_output_dir()
+	##
+
+	_local l_prod << smallworld_product.product( p_product_name )
+	_if l_prod _is _unset 
+	_then condition.raise(:sw_product_not_found,
+			      :name,p_product_name)
+	_endif
+	
+	_local l_ts << sw:test_suite.new_from_product( l_prod.name )
+	write("Running tests in product ",l_prod)
+
+	_local l_od << p_outdir.default(_self.set_output_dir( l_prod ))
+	
+	.product << l_prod
+	
+	_local l_id << write_string(_self.sw_release_version_string,l_ts.get_name())
+	_local l_tr << sw:xml_test_runner.new( _unset,
+					       :output_dir, l_od,
+					       :output_identifier, l_id )
+	_local l_st << l_tr.new_stream( l_ts )
+	
+	l_tr.stream << l_st
+	_protect
+		l_tr.run( l_ts )
+		l_st.flush()
+	_protection
+		l_st.close()
+	_endprotect
+
+	r << l_tr.test_result
+	_self.print_munit_test_result(r)
+
+	>> r
+
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,munit_extras})
+_method test_coordinator.set_output_dir( p_prod )
+	## 
+	## If MUNIT_OUTPUT_DIR isnt set, set it to the <product>/results
+	##
+	
+	_try _with cond
+		
+		_if (d << system.getenv("MUNIT_OUTPUT_DIR")) _is _unset 
+		_then
+			l << p_prod.directory
+			d << system.pathname_from_components("results",l)
+			_if _not system.file_exists?( d )
+			_then condition.raise(:error,:string,write_string("Result dir ",d," does not exist"))
+			_endif
+			system.putenv("MUNIT_OUTPUT_DIR",d)
+			write("MUNIT_OUTPUT_DIR set to ",d)
+		_else
+			_if _not system.file_exists?( d )
+			_then condition.raise(:error,:string,write_string("Result dir from MUNIT_OUTPUT_DIR ",d," does not exist"))
+			_endif
+			write("Output dir from %MUNIT_OUTPUT_DIR% ",d)
+		_endif
+		
+	_when error warning
+		write("Output dir ",d," could not be set ")
+		d << system.temp_directory_name
+	_endtry
+
+	>> d.default(system.temp_directory_name)
+	
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,munit_extras})
+_method test_coordinator.print_munit_test_result( p_test_result )
+	## 
+	## 
+	print(p_test_result)	
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,munit_extras})
+_method test_coordinator.sw_release_version_string
+	## 
+	## Returns a string from smallworld_product.release_version to
+	## use in the :output_identifier
+	##
+
+	_local l_vec << _allresults smallworld_product.release_version
+	_local l_str << "SW"
+	_for i _over l_vec.fast_elements()
+	_loop l_str << write_string(l_str,%.,i.default(""))
+	_endloop
+
+	>> l_str
+	
+_endmethod
+$

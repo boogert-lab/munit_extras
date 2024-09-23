@@ -1,0 +1,251 @@
+#% text_encoding = iso8859_1
+# ************************************************************
+#
+# (c) 2021 Realworld Software Products. All Rights Reserved.
+#
+# ************************************************************
+
+_package sw
+
+remex(:test_coordinator)
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+##
+## A thing that knows about modules and can set an appropriate
+## out dir and can start product suite test with run()
+##
+def_slotted_exemplar(:test_coordinator,
+	{
+		{:instances,weak_hash_table.new()},
+		{:product,_unset},
+		{:module,_unset},
+		{:output_dir,_unset},
+		{:modules_to_test,_unset},
+		{:test_suite,_unset},
+		{:test_runner,_unset}
+	})
+$
+# Make myself dependent so, I can automatically start module
+# tests when a test module is loaded.
+sw_module_manager.add_dependent(test_coordinator,:loaded_module)
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+test_coordinator.define_slot_access(:product,:read,:public)
+$
+_pragma(classify_level=advanced, topic={munit,test})
+test_coordinator.define_slot_access(:module,:read,:public)
+$
+_pragma(classify_level=advanced, topic={munit,test})
+test_coordinator.define_slot_access(:output_dir,:read,:public)
+$
+_pragma(classify_level=advanced, topic={munit,test})
+test_coordinator.define_slot_access(:modules_to_test,:read,:public)
+$
+_pragma(classify_level=advanced, topic={munit,test})
+test_coordinator.define_slot_access(:test_suite,:read,:public)
+$
+_pragma(classify_level=advanced, topic={munit,test})
+test_coordinator.define_slot_access(:test_runner,:read,:public)
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+##
+## If this variable is _true, loading a test module will
+## automatically start the tests.
+## It is set to _false if the whole product suite is tested.
+##
+test_coordinator.define_shared_variable(:runs_automated?,_true,:public)
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.new(_optional p_module_or_product )
+	## 
+	## 
+	>> _clone.init( p_module_or_product )
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.init( p_module_or_product )
+	## 
+	##
+	
+	_if p_module_or_product.is_kind_of?( sw_module )
+	_then
+		.module << p_module_or_product
+		.modules_to_test << .module.tested_modules
+		.test_suite << _self.test_suite_for_module( p_module_or_product )
+		
+	_elif p_module_or_product.is_kind_of?( sw_product )
+	_then
+		.product << p_module_or_product
+		.test_suite << _self.test_suite_for_product( p_module_or_product )
+	_else
+		condition.raise(:error,:string,write_string(p_module_or_product," is NOT suitable to test!"))
+	_endif
+
+	.output_dir << _self.get_output_dir()
+
+	.instances[p_module_or_product] << _self
+	
+	write(_self," initialised with ",.test_suite)
+	
+	>> _self
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.test_suite_for_product( _optional p_product)
+	## 
+	## 
+	>> sw:product_test_suite.new( p_product.default(.product).name )
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.test_suite_for_module( _optional p_module)
+	## 
+	## 
+	>> sw:module_test_suite.new_for_test_module( p_module.default(.module) )
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.product_directory
+	## 
+	## 
+
+	>> _if .product _isnt _unset
+	   _then >> .product.directory
+	   _elif .module _isnt _unset
+	   _then >> .module.product.directory
+	   _endif
+
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.test_result
+	## 
+	## 
+	>> _if .test_runner _isnt _unset 
+	   _then >> .test_runner.test_result
+	   _endif
+	
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.assert_reporter
+	## 
+	##
+	
+	>> _if (l_tr << _self.test_result) _isnt _unset 
+	   _then >> l_tr.assert_reporter
+	   _endif
+
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.get_output_dir()
+	## 
+	## If MUNIT_OUTPUT_DIR isnt set, set it to the <product>/results
+	##
+
+	_local l_o_dir << system.getenv("MUNIT_OUTPUT_DIR")
+
+		
+	_if l_o_dir _is _unset 
+	_then
+		_try _with p_cond
+			
+			l_o_dir << system.pathname_from_components("results",_self.product_directory)
+			
+			system.putenv("MUNIT_OUTPUT_DIR",l_o_dir)
+			write("%MUNIT_OUTPUT_DIR% set to ",l_o_dir)
+		_when error warning
+			write("Output dir could not be set - ",p_cond.report_contents_string," using ",system.temp_directory_name)
+			l_o_dir << system.temp_directory_name
+		_endtry
+	_else
+		write("Output dir from %MUNIT_OUTPUT_DIR% ",l_o_dir)
+	_endif
+		
+	>> l_o_dir.default(system.temp_directory_name)
+	
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.run( )
+	## 
+	##
+
+	_if .test_suite _is _unset 
+	_then write(_self," isnt initialised with a test_suite!")
+	      _return _false 
+	_endif
+	
+	write("START MUNIT TEST SUITE")
+
+	_if _self.runs_automated? _isnt _true 
+	_then write("No tests are run automatically")
+	_endif
+
+	_local l_id << write_string(_self.sw_release_version_string,.test_suite.get_name())
+	.test_runner << sw:xml_test_runner.new( _unset,
+						:output_dir, .output_dir,
+						:output_identifier, l_id )
+	
+	_local l_st << .test_runner.new_stream( .test_suite )
+	.test_runner.stream << l_st
+	_protect
+		.test_runner.run( .test_suite )
+		l_st.flush()
+	_protection
+		l_st.close()
+	_endprotect
+
+	write("END MUNIT TEST SUITE")
+	print(.test_runner.test_result)
+	write("See ",.output_dir," for results")
+
+	>> _self
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.show_on( a_stream )
+	## 
+	## 
+	>> a_stream.write("a ",_self.class_name,"(",.test_suite,")")
+_endmethod
+$
+
+_pragma(classify_level=advanced, topic={munit,test})
+_method test_coordinator.note_change( p_who, p_what, p_data )
+	## 
+	## When _self.runs_automated? is true and P_WHO is the
+	## sw_module_manager and its P_WHAT is :loaded_module and
+	## P_DATA is a test module, create and run a new instance of
+	## self for that module
+	##
+	
+	#DEBUG write(_self," notes ",p_who,%,,p_what,%,,p_data)
+	_if _self.runs_automated? _is _true _andif
+	    _self _is !current_package![:test_coordinator] _andif
+	    p_who _is sw_module_manager _andif
+	    p_what _is :loaded_module _andif
+	    p_data.is_kind_of?(sw_module) _andif
+	    p_data.test_module? _is _true
+	_then
+		write(_self," Creating instance for ",p_data)
+		l_co << _self.new( p_data )
+		l_co.run()
+	_endif
+	
+_endmethod
+$
