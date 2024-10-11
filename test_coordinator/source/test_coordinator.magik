@@ -37,8 +37,8 @@ _endmethod
 $
 
 
-_pragma(classify_level=advanced, topic={munit,munit_extras})
-_method test_coordinator.run( p_product_name, _optional p_outdir )
+_pragma(classify_level=basic, topic={munit,munit_extras})
+_method test_coordinator.run( p_product_name, _optional p_outdir, _gather keys_and_values )
 	##
 	## Set output dir and run test_suite from for product with name
 	## P_PRODUCT_NAME and print the results.
@@ -53,7 +53,8 @@ _method test_coordinator.run( p_product_name, _optional p_outdir )
 	_then condition.raise(:sw_product_not_found,
 			      :name,p_product_name)
 	_endif
-	
+
+	_local l_props << property_list.new_from_gathered( keys_and_values )
 	_local l_ts << sw:test_suite.new_from_product( l_prod.name )
 	write("Running tests in product ",l_prod)
 
@@ -98,8 +99,8 @@ _method test_coordinator.set_output_dir( p_prod )
 			_if _not system.file_exists?( d )
 			_then condition.raise(:error,:string,write_string("Result dir ",d," does not exist"))
 			_endif
-			system.putenv("MUNIT_OUTPUT_DIR",d)
-			write("MUNIT_OUTPUT_DIR set to ",d)
+#			system.putenv("MUNIT_OUTPUT_DIR",d)
+#			write("MUNIT_OUTPUT_DIR set to ",d)
 		_else
 			_if _not system.file_exists?( d )
 			_then condition.raise(:error,:string,write_string("Result dir from MUNIT_OUTPUT_DIR ",d," does not exist"))
